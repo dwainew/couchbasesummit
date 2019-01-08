@@ -1,1 +1,3 @@
 opt_resources
+*.pyc
+resources/namespace.yaml
