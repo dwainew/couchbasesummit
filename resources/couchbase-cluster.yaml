@@ -22,11 +22,11 @@ spec:
     autoFailoverOnDataDiskIssuesTimePeriod: 120
     autoFailoverServerGroup: false
   buckets:
-    - name: default
+    - name: couchmart
       type: couchbase
       memoryQuota: 128
       replicas: 1
-      ioPriority: high
+      ioPriority: low
       evictionPolicy: valueOnly
       conflictResolution: seqno
       enableFlush: true
