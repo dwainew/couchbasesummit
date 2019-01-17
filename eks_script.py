@@ -84,7 +84,7 @@ if __name__ == "__main__":
 		print("Found parameter")
 		tag=parameters.COUCHMART_TAG
 	except AttributeError:
-		tag=python2
+		tag="python2"
 
 	print("Creating couchmart from cbck/couchmart:{}".format(tag))
 	execute_command("kubectl run couchmart --image=cbck/couchmart:{0} --namespace {1}".format(tag,ns))	
