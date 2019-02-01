@@ -44,11 +44,11 @@ def execute_command(command):
 def create_namespace_yaml():
 	f = open("./resources/namespace.yaml","w")
 	f.write("kind: Namespace\n")
-        f.write("apiVersion: v1\n")
-        f.write("metadata:\n")
-        f.write("  name: {0}\n".format(ns))
-        f.write("  labels:\n")
-        f.write("    name: {0}\n".format(ns))
+	f.write("apiVersion: v1\n")
+	f.write("metadata:\n")
+	f.write("  name: {0}\n".format(ns))
+	f.write("  labels:\n")
+	f.write("    name: {0}\n".format(ns))
 	f.close()
 
 
