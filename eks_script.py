@@ -51,6 +51,47 @@ def create_namespace_yaml():
 	f.write("    name: {0}\n".format(ns))
 	f.close()
 
+def check_status(ns):
+	print(divider)
+
+	retVal=False
+	maxTry=parameters.CM_RETRY_ATTEMPTS
+	myTry=1
+
+	while retVal == False and myTry <= maxTry:
+		print ("Checking couchmart pod status : attempt {}".format(myTry))
+		myTry = myTry + 1
+		p=subprocess.Popen("kubectl get pods --namespace {}".format(ns), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		for line in p.stdout.readlines():
+			spaces=line.split()
+			if "couchmart" in spaces[0].decode('ascii'):
+				if spaces[1].decode('ascii') == "1/1":
+					print(spaces[0].decode('ascii') + "  " + spaces[1].decode('ascii'))
+					retVal=True
+				else:
+					print(spaces[0].decode('ascii') + "  " + spaces[1].decode('ascii'))
+		
+		time.sleep(parameters.CM_WAIT_TIME_SEC)
+
+	return retVal
+
+def update_settings_py(ns):
+	print(divider)
+	print("updating setting.py")
+
+	name = "unknown"
+	str_lit = "\"cb-example-{0}.cb-example.{1}.svc\""
+
+	p=subprocess.Popen("kubectl get pods --namespace {}".format(ns), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+	for line in p.stdout.readlines():
+		spaces=line.split()
+		if "couchmart" in spaces[0].decode('ascii'):
+			name=spaces[0].decode('ascii')
+			break
+
+	execute_command("kubectl exec -it {0} --namespace {1} -- sed -e 3d -e \'2a AWS_NODES = [{2},{3},{4}]\' -i.bkup /couchmart/settings.py".format(
+		name,ns,str_lit.format("0000",ns),str_lit.format("0001",ns),str_lit.format("0002",ns)))
+
 
 if __name__ == "__main__":
 
@@ -86,5 +127,14 @@ if __name__ == "__main__":
 	except AttributeError:
 		tag="python2"
 
+	print(divider)
 	print("Creating couchmart from cbck/couchmart:{}".format(tag))
 	execute_command("kubectl run couchmart --image=cbck/couchmart:{0} --namespace {1}".format(tag,ns))	
+
+	print(divider)
+	print("Checking completion status of couchmart pod")
+	if check_status(ns) == True:
+		update_settings_py(ns)
+	else:
+		print("No running Couchmart Pod detected...")
+
