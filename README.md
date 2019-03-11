@@ -1,1 +1,1 @@
-Couchbase Day Setup
++++Couchbase NoSQL Summit Workshop Setup
