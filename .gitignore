@@ -1,3 +1,6 @@
 opt_resources
 *.pyc
 resources/namespace.yaml
+.DS_Store
+*.orig
+*.orig
