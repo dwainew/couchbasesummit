@@ -4,9 +4,12 @@ import sys
 import time
 import random
 
+version="1.0.0"
 ns=""
 divider="--------------------------------------"
 se_user=False
+create_cluster=False
+create_couchmart=True
 
 def check_ns():
 	print("Running eks deployment script")
@@ -92,13 +95,35 @@ def update_settings_py(ns):
 	execute_command("kubectl exec -it {0} --namespace {1} -- sed -e 3d -e \'2a AWS_NODES = [{2},{3},{4}]\' -i.bkup /couchmart/settings.py".format(
 		name,ns,str_lit.format("0000",ns),str_lit.format("0001",ns),str_lit.format("0002",ns)))
 
+def usage():
+	print("python eks_script.py [--create-crd] [--create-cb-cluster] [--no-couchmart] [-h|--help]")
+	print("version: {}".format(version))
+	print("")
+	print("	--create-crd  		== Create the cluster level resources such as CRD and ClusterRole")
+	print("	--create-cb-cluster	== Create the couchbase cluster automatically")
+	print("	--no-couchmart		== Disable creation of the Couchmart demo application pod")
 
 if __name__ == "__main__":
 
 	#Check if SE user is flagged
-	if len(sys.argv) >= 2:
-		if sys.argv[1] == "SEUser":
-			se_user = True			
+	for x in sys.argv:
+		y = x.upper()
+		if y == "SEUSER" or y == "--CREATE-CRD":
+			se_user = True
+		elif y == "--CREATE-CB-CLUSTER":
+			create_cluster = True
+		elif y == "--NO-COUCHMART":
+			create_couchmart = False
+		elif y == "EKS_SCRIPT.PY":
+			continue
+		elif y == "-H" or y == "--HELP":
+			usage()
+			sys.exit(0)
+		else:
+			print ("Unknown flag {}".format(x))
+			usage()
+			sys.exit(1)
+		
 
 	ns = check_ns()
 	if len(ns) <= 0:
@@ -122,19 +147,21 @@ if __name__ == "__main__":
 
 	#Launch Couchmart Environment
 	try:
-		print("Found parameter")
 		tag=parameters.COUCHMART_TAG
 	except AttributeError:
 		tag="python2"
 
-	print(divider)
-	print("Creating couchmart from cbck/couchmart:{}".format(tag))
-	execute_command("kubectl run couchmart --image=cbck/couchmart:{0} --namespace {1}".format(tag,ns))	
+	if create_couchmart:
+		print(divider)
+		print("Creating couchmart from cbck/couchmart:{}".format(tag))
+		execute_command("kubectl run couchmart --image=cbck/couchmart:{0} --namespace {1}".format(tag,ns))	
 
-	print(divider)
-	print("Checking completion status of couchmart pod")
-	if check_status(ns) == True:
-		update_settings_py(ns)
-	else:
-		print("No running Couchmart Pod detected...")
+		print(divider)
+		print("Checking completion status of couchmart pod")
+		if check_status(ns) == True:
+			update_settings_py(ns)
+		else:
+			print("No running Couchmart Pod detected...")
 
+	if create_cluster:
+		execute_command("kubectl create -f ./resources/couchbase-cluster.yaml --namespace {}".format(ns))
