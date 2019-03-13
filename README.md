@@ -1,6 +1,6 @@
 ![CB Logo](https://www.couchbase.com/webfiles/1552355627964/images/couchbase_logo.svg)
 
-#Couchbase NoSQL Summit Workshop Setup
+# Couchbase NoSQL Summit Workshop Setup
 #### Couchbase Autonomous Operator Deployment Script 
 
 This script deploys the Couchbase Autonomous Operator into an existing Kubernetes Cluster.
@@ -11,7 +11,7 @@ The script is comprised of the following components:
 * parameters.py  -- Parameter File
 * resources		-- Yaml files used to deploy CB Operator
 
-##Usage
+## Usage
 
 The script can be run as follows:
 
@@ -27,7 +27,7 @@ version: 1.0.0
 **--create-crd does require elevated privileges  as this will deploy cluster level resources**
 
 
-##Parameters
+## Parameters
 
 The parameter file consists of the following parameters
 
@@ -38,7 +38,7 @@ The parameter file consists of the following parameters
 |CM\_WAIT\_TIME\_SEC	| The time to wait between checks to see if the Couchmart pod was succesfully created|
 |CM\_RETRY\_ATTEMPTS	| The amount of checks to make to see if the Couchmart pod was succesfully created|
 
-##Resources
+## Resources
 
 Please refer to the Couchbase Autonomous Operator Documentation for more details on the Operator and corresponding yaml files.  The documentation can be found at <https://docs.couchbase.com/operator/1.1/overview.html>
 
