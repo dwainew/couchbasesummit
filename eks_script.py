@@ -83,7 +83,7 @@ def update_settings_py(ns):
 	print("updating setting.py")
 
 	name = "unknown"
-	str_lit = "\"cb-example-{0}.cb-example.{1}.svc\""
+	str_lit = "\\\"cb-example-{0}.cb-example.{1}.svc\\\""
 
 	p=subprocess.Popen("kubectl get pods --namespace {}".format(ns), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	for line in p.stdout.readlines():
@@ -92,7 +92,8 @@ def update_settings_py(ns):
 			name=spaces[0].decode('ascii')
 			break
 
-	execute_command("kubectl exec -it {0} --namespace {1} -- sed -e 3d -e \'2a AWS_NODES = [{2},{3},{4}]\' -i.bkup /couchmart/settings.py".format(
+	execute_command("kubectl exec -it {0} --namespace {1} -- sed -e 3d -i.bkup /couchmart/settings.py".format(name,ns))
+	execute_command("kubectl exec -it {0} --namespace {1} -- sed -e \"2a AWS_NODES = [{2},{3},{4}]\" -i.bkup /couchmart/settings.py".format(
 		name,ns,str_lit.format("0000",ns),str_lit.format("0001",ns),str_lit.format("0002",ns)))
 
 def usage():
