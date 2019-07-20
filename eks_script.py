@@ -4,7 +4,7 @@ import sys
 import time
 import random
 
-version="1.0.0"
+version="1.0.2"
 ns=""
 divider="--------------------------------------"
 se_user=False
@@ -67,7 +67,7 @@ def check_status(ns):
 		p=subprocess.Popen("{0} get pods --namespace {1}".format(COMMAND,ns), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 		for line in p.stdout.readlines():
 			spaces=line.split()
-			if "couchmart" in spaces[0].decode('ascii'):
+			if "couchmart" in spaces[0].decode('ascii') and "deploy" not in spaces[0].decode('ascii'):
 				if spaces[1].decode('ascii') == "1/1":
 					print(spaces[0].decode('ascii') + "  " + spaces[1].decode('ascii'))
 					retVal=True
@@ -88,7 +88,7 @@ def update_settings_py(ns):
 	p=subprocess.Popen("{0} get pods --namespace {1}".format(COMMAND,ns), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 	for line in p.stdout.readlines():
 		spaces=line.split()
-		if "couchmart" in spaces[0].decode('ascii'):
+		if "couchmart" in spaces[0].decode('ascii') and "deploy" not in spaces[0].decode('ascii'):
 			name=spaces[0].decode('ascii')
 			break
 
@@ -106,7 +106,13 @@ def usage():
 
 if __name__ == "__main__":
 
-	COMMAND="kubectl"
+	#COMMAND="kubectl"
+	try:
+		COMMAND=parameters.COMMAND
+	except AttributeError:
+		COMMAND="kubectl"
+
+	print("Running command : {}".format(COMMAND))
 
 	#Check if SE user is flagged
 	for x in sys.argv:
@@ -167,4 +173,7 @@ if __name__ == "__main__":
 			print("No running Couchmart Pod detected...")
 
 	if create_cluster:
-		execute_command("{0} create -f ./resources/couchbase-cluster.yaml --namespace {1}".format(COMMAND,ns))
+		if COMMAND == "oc":
+			execute_command("{0} create -f ./resources/couchbase-cluster-OC.yaml --namespace {1}".format(COMMAND,ns))
+		else:
+			execute_command("{0} create -f ./resources/couchbase-cluster.yaml --namespace {1}".format(COMMAND,ns))
