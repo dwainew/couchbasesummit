@@ -3,14 +3,25 @@ import parameters
 import sys
 import time
 import random
+import os
 
-version="1.0.2"
+#-------------------------------#
+#	Global Variables
+#-------------------------------#
+version="1.1.0"
 ns=""
 divider="--------------------------------------"
 se_user=False
 create_cluster=False
 create_couchmart=True
 
+#-------------------------------#
+#	Functions
+#-------------------------------#
+
+#--------------------
+#	Check if the specified NameSpace already exists with the K8S cluster
+#--------------------
 def check_ns():
 	print("Running eks deployment script")
 	if sys.version_info[0] < 3:
@@ -32,6 +43,9 @@ def check_ns():
 
 	return ns
 
+#--------------------
+#	Wrapper method to execute an arbitrary command
+#--------------------
 def execute_command(command):
 	print(divider)
 	print("Executing command : {}".format(command))
@@ -44,6 +58,9 @@ def execute_command(command):
 		print ("Error encountered running command: {}".format(command))
 		sys.exit(retval)
 
+#--------------------
+#	Create the namespace yaml in the resources folder
+#--------------------
 def create_namespace_yaml():
 	f = open("./resources/namespace.yaml","w")
 	f.write("kind: Namespace\n")
@@ -54,6 +71,9 @@ def create_namespace_yaml():
 	f.write("    name: {0}\n".format(ns))
 	f.close()
 
+#--------------------
+#	Check the Couchmart deployment status
+#--------------------
 def check_status(ns):
 	print(divider)
 
@@ -78,6 +98,9 @@ def check_status(ns):
 
 	return retVal
 
+#--------------------
+#	Update the couchmart settings.py file on the pod
+#--------------------
 def update_settings_py(ns):
 	print(divider)
 	print("updating setting.py")
@@ -96,6 +119,118 @@ def update_settings_py(ns):
 	execute_command("{0} exec -it {1} --namespace {2} -- sed -e \"2a AWS_NODES = [{3},{4},{5}]\" -i.bkup /couchmart/settings.py".format(
 		COMMAND,name,ns,str_lit.format("0000",ns),str_lit.format("0001",ns),str_lit.format("0002",ns)))
 
+#--------------------
+#	Set up EASYRSA and generate certificates for Admission Controller in our Operator 1.2
+#--------------------
+def setup_rsa(ns):
+	print(divider)
+	print("Generating certificate for Admission Controller")
+
+	if os.path.exists("./resources/easy-rsa"):
+		execute_command("rm -rf ./resources/easy-rsa")
+	execute_command("git clone https://github.com/OpenVPN/easy-rsa ./resources/easy-rsa")
+
+	os.environ['EASYRSA_PKI']="./resources/easy-rsa/easyrsa3/pki"
+        print("EASYRSA_PKI set to : {}".format(os.environ['EASYRSA_PKI']))
+
+	execute_command("./resources/easy-rsa/easyrsa3/easyrsa init-pki")
+	execute_command("./resources/easy-rsa/easyrsa3/easyrsa build-ca < ./resources/ca_inputs.txt")
+
+	print("************************************************************")
+	print("	Note:  Generating public and private key")
+	print("	       if prompted enter passphrase: password")
+	print("************************************************************")
+
+	execute_command("./resources/easy-rsa/easyrsa3/easyrsa --subject-alt-name=\"DNS:*.cb-example.{0}.svc,DNS:*.{0}.svc\" build-server-full couchbase-server nopass".format(ns))
+
+	execute_command("openssl rsa -in ./resources/easy-rsa/easyrsa3/pki/private/couchbase-server.key -out ./resources/easy-rsa/easyrsa3/pki/private/pkey.key.der -outform DER")
+	execute_command("openssl rsa -in ./resources/easy-rsa/easyrsa3/pki/private/pkey.key.der -inform DER -out ./resources/easy-rsa/easyrsa3/pki/private/pkey.key -outform PEM")
+
+	execute_command("cp -p ./resources/easy-rsa/easyrsa3/pki/issued/couchbase-server.crt ./resources/easy-rsa/easyrsa3/pki/issued/chain.pem")
+	execute_command("cp -p ./resources/easy-rsa/easyrsa3/pki/issued/couchbase-server.crt ./resources/easy-rsa/easyrsa3/pki/issued/tls-cert-file")
+	execute_command("cp -p ./resources/easy-rsa/easyrsa3/pki/private/pkey.key ./resources/easy-rsa/easyrsa3/pki/private/tls-private-key-file")
+
+	PRIVATE_PATH="./resources/easy-rsa/easyrsa3/pki/private"
+	ISSUED_PATH="./resources/easy-rsa/easyrsa3/pki/issued"
+
+	execute_command("{0} create secret generic couchbase-server-tls --from-file {1} --from-file {2} --namespace {3}".format(
+		COMMAND,PRIVATE_PATH+"/pkey.key",ISSUED_PATH+"/chain.pem",ns)) 
+
+	execute_command("{0} create secret generic couchbase-operator-admission --from-file {1} --from-file {2} --namespace {3}".format(
+		COMMAND,ISSUED_PATH+"/tls-cert-file",PRIVATE_PATH+"/tls-private-key-file",ns)) 
+
+	execute_command("{0} create secret generic couchbase-operator-tls --from-file {1} --namespace {2}".format(
+		COMMAND,"./resources/easy-rsa/easyrsa3/pki/ca.crt",ns))
+
+#--------------------
+#	Update the admission controller yaml from the template
+#--------------------
+def setup_admission_controller(ns,OP_PATH):
+	print(divider)
+	
+	if COMMAND == "oc":
+		ADMISSION_FILE=OP_PATH+"/openshift/admission.yaml"
+	else:
+		ADMISSION_FILE=OP_PATH+"/k8s/admission.yaml"
+
+	execute_command("cp -fp {0}.template {0}".format(ADMISSION_FILE))
+	execute_command("sed -e \"s/###NAMESPACE###/{0}/g\" -i.bkup {1}".format(ns,ADMISSION_FILE))
+
+	execute_command("base64 ./resources/easy-rsa/easyrsa3/pki/issued/tls-cert-file > ./resources/easy-rsa/easyrsa3/pki/issued/tls-cert-file-base64")
+
+	with open('./resources/easy-rsa/easyrsa3/pki/issued/tls-cert-file-base64', 'r') as file:
+    		caBundle = file.read().replace('\n', '')
+
+	execute_command("sed -e \"s/###CABUNDLE###/{0}/g\" -i.bkup {1}".format(caBundle,ADMISSION_FILE))
+
+#--------------------
+#	Deploy Couchbase Autonomous Operator 1.1
+#--------------------
+def deploy_op_1_1(ns,OP_PATH):
+	print(divider)
+	execute_command("{0} create -f {1}/serviceaccount-couchbase.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+	if se_user:
+		execute_command("{0} create -f {1}/cluster-role.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+
+	execute_command("{0} create -f {1}/rolebinding.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+
+	# Cluster level resource only needs to be run once
+	if se_user:
+		execute_command("{0} create -f {1}/crd.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+
+	execute_command("{0} create -f {1}/operator.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+	execute_command("{0} create -f {1}/secret.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+
+#--------------------
+#	Deploy Couchbase Autonomous Operator 1.2
+#--------------------
+def deploy_op_1_2(ns,OP_PATH):
+	print(divider)
+
+	if COMMAND == "oc":
+		OP_PATH=OP_PATH+"/openshift"
+	else:
+		OP_PATH=OP_PATH+"/k8s"
+	
+	if se_user:
+		execute_command("{0} create -f {1}/couchbase-operator-admission.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+		execute_command("{0} create -f {1}/crd.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+
+	execute_command("{0} create -f {1}/admission.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+	execute_command("{0} create -f {1}/operator-role.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+	execute_command("{0} create -f {1}/operator-service-account.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+
+	execute_command("cp -fp {0}.template {0}".format(OP_PATH+"/operator-role-binding.yaml"))
+	execute_command("sed -e \"s/###NAMESPACE###/{0}/g\" -i.bkup {1}".format(ns,OP_PATH+"/operator-role-binding.yaml"))
+	execute_command("{0} create -f {1}/operator-role-binding.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+	execute_command("{0} create -f {1}/operator-deployment.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+	
+	execute_command("{0} create -f {1}/secret.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+
+
+#--------------------
+#	Print Usage
+#--------------------
 def usage():
 	print("python eks_script.py [--create-crd] [--create-cb-cluster] [--no-couchmart] [-h|--help]")
 	print("version: {}".format(version))
@@ -104,17 +239,39 @@ def usage():
 	print("	--create-cb-cluster	== Create the couchbase cluster automatically")
 	print("	--no-couchmart		== Disable creation of the Couchmart demo application pod")
 
+#-------------------------------#
+#	Main Program
+#-------------------------------#
 if __name__ == "__main__":
 
-	#COMMAND="kubectl"
+	#----------------------------------
+	#  Pull information from Parameters
+	#----------------------------------
 	try:
 		COMMAND=parameters.COMMAND
 	except AttributeError:
 		COMMAND="kubectl"
 
-	print("Running command : {}".format(COMMAND))
+	try:
+		OP_VER=parameters.OPERATOR_VERSION
+	except AttributeError:
+		OP_VER=1.2
 
-	#Check if SE user is flagged
+	try:
+		if float(OP_VER) == 1.1:
+			OP_PATH="./resources/operator_1.1"
+		else:
+			OP_PATH="./resources/operator_1.2"
+	except ValueError:
+		OP_VER=1.2
+		OP_PATH="./resources/operator_1.2"
+	
+
+	print("Running command : [{0}] with operator version [{1}]".format(COMMAND,OP_PATH))
+
+	#----------------------------------
+	#	Parse Arguments
+	#----------------------------------
 	for x in sys.argv:
 		y = x.upper()
 		if y == "SEUSER" or y == "--CREATE-CRD":
@@ -134,6 +291,9 @@ if __name__ == "__main__":
 			sys.exit(1)
 		
 
+	#----------------------------------
+	#	Deploy to K8S or Openshift
+	#----------------------------------
 	ns = check_ns()
 	if len(ns) <= 0:
 		print("Namespace was already detected or cant be blank")
@@ -141,19 +301,18 @@ if __name__ == "__main__":
 
 	create_namespace_yaml()
 	execute_command("{0} create -f ./resources/namespace.yaml".format(COMMAND))
-	execute_command("{0} create -f ./resources/serviceaccount-couchbase.yaml --namespace {1}".format(COMMAND,ns))
-	if se_user:
-		execute_command("{0} create -f ./resources/cluster-role.yaml --namespace {1}".format(COMMAND,ns))
 
-	execute_command("{0} create -f ./resources/rolebinding.yaml --namespace {1}".format(COMMAND,ns))
+	if float(OP_VER) >= 1.2:
+		setup_rsa(ns)
+		setup_admission_controller(ns,OP_PATH)
+		deploy_op_1_2(ns,OP_PATH)
+	else:
+		deploy_op_1_1(ns,OP_PATH)
 
-	# Cluster level resource only needs to be run once
-	if se_user:
-		execute_command("{0} create -f ./resources/crd.yaml --namespace {1}".format(COMMAND,ns))
 
-	execute_command("{0} create -f ./resources/operator.yaml --namespace {1}".format(COMMAND,ns))
-	execute_command("{0} create -f ./resources/secret.yaml --namespace {1}".format(COMMAND,ns))
-
+	#-------------------------------------------
+	# Shared Steps
+	#-------------------------------------------
 	#Launch Couchmart Environment
 	try:
 		tag=parameters.COUCHMART_TAG
@@ -173,7 +332,13 @@ if __name__ == "__main__":
 			print("No running Couchmart Pod detected...")
 
 	if create_cluster:
-		if COMMAND == "oc":
-			execute_command("{0} create -f ./resources/couchbase-cluster-OC.yaml --namespace {1}".format(COMMAND,ns))
+		if float(OP_VER) >= 1.2:
+			if COMMAND == "oc":
+				execute_command("{0} create -f {1}/couchbase-cluster.yaml --namespace {2}".format(COMMAND,OP_PATH+"/openshift",ns))
+			else:
+				execute_command("{0} create -f {1}/couchbase-cluster.yaml --namespace {2}".format(COMMAND,OP_PATH+"/k8s",ns))
 		else:
-			execute_command("{0} create -f ./resources/couchbase-cluster.yaml --namespace {1}".format(COMMAND,ns))
+			if COMMAND == "oc":
+				execute_command("{0} create -f {1}/couchbase-cluster-OC.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
+			else:
+				execute_command("{0} create -f {1}/couchbase-cluster.yaml --namespace {2}".format(COMMAND,OP_PATH,ns))
