@@ -133,15 +133,15 @@ def setup_rsa(ns):
 	os.environ['EASYRSA_PKI']="./resources/easy-rsa/easyrsa3/pki"
         print("EASYRSA_PKI set to : {}".format(os.environ['EASYRSA_PKI']))
 
-	execute_command("./resources/easy-rsa/easyrsa3/easyrsa init-pki")
-	execute_command("./resources/easy-rsa/easyrsa3/easyrsa build-ca < ./resources/ca_inputs.txt")
+	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa init-pki")
+	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa build-ca < ./resources/ca_inputs.txt")
 
 	print("************************************************************")
 	print("	Note:  Generating public and private key")
 	print("	       if prompted enter passphrase: password")
 	print("************************************************************")
 
-	execute_command("./resources/easy-rsa/easyrsa3/easyrsa --subject-alt-name=\"DNS:*.cb-example.{0}.svc,DNS:*.{0}.svc\" build-server-full couchbase-server nopass".format(ns))
+	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa --subject-alt-name=\"DNS:*.cb-example.{0}.svc,DNS:*.{0}.svc\" build-server-full couchbase-server nopass".format(ns))
 
 	execute_command("openssl rsa -in ./resources/easy-rsa/easyrsa3/pki/private/couchbase-server.key -out ./resources/easy-rsa/easyrsa3/pki/private/pkey.key.der -outform DER")
 	execute_command("openssl rsa -in ./resources/easy-rsa/easyrsa3/pki/private/pkey.key.der -inform DER -out ./resources/easy-rsa/easyrsa3/pki/private/pkey.key -outform PEM")
