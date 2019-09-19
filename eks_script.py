@@ -134,12 +134,12 @@ def setup_rsa(ns):
         print("EASYRSA_PKI set to : {}".format(os.environ['EASYRSA_PKI']))
 
 	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa init-pki")
-	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa build-ca < ./resources/ca_inputs.txt")
 
 	print("************************************************************")
-	print("	Note:  Generating public and private key")
-	print("	       if prompted enter passphrase: password")
+	print("	Note:  Creating Certificate Authority")
+	print("	       Enter any value: Example = Couchbase CA")
 	print("************************************************************")
+	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa build-ca nopass")
 
 	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa --subject-alt-name=\"DNS:*.cb-example.{0}.svc,DNS:*.{0}.svc\" build-server-full couchbase-server nopass".format(ns))
 
