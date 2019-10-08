@@ -131,7 +131,7 @@ def setup_rsa(ns):
 	execute_command("git clone https://github.com/OpenVPN/easy-rsa ./resources/easy-rsa")
 
 	os.environ['EASYRSA_PKI']="./resources/easy-rsa/easyrsa3/pki"
-        print("EASYRSA_PKI set to : {}".format(os.environ['EASYRSA_PKI']))
+	print("EASYRSA_PKI set to : {}".format(os.environ['EASYRSA_PKI']))
 
 	execute_command("sh ./resources/easy-rsa/easyrsa3/easyrsa init-pki")
 

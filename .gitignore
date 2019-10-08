@@ -4,3 +4,12 @@ resources/namespace.yaml
 .DS_Store
 *.orig
 *.orig
+resources/easy-rsa
+resources/operator_1.2/openshift/admission.yaml
+resources/operator_1.2/openshift/admission.yaml.bkup
+resources/operator_1.2/openshift/operator-role-binding.yaml
+resources/operator_1.2/openshift/operator-role-binding.yaml.bkup
+resources/operator_1.2/k8s/admission.yaml
+resources/operator_1.2/k8s/admission.yaml.bkup
+resources/operator_1.2/k8s/operator-role-binding.yaml
+resources/operator_1.2/k8s/operator-role-binding.yaml.bkup
