@@ -36,8 +36,3 @@ spec:
       name: all_services
       services:
         - data
-        - index
-        - query
-        - search
-        - eventing
-        - analytics
