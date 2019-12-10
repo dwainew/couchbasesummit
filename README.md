@@ -46,6 +46,7 @@ The parameter file consists of the following parameters
 |Parameter             | Description                                      |
 |:---------------------|:------------------------------------------------:|
 |COMMAND                | The command to use for execution. Either **kubectl** or **oc**|
+|OPERATOR_VERSION	| The version of the Couchbase Autonmous Operator to use|
 |NS_ATTEMPTS				| The amount of attempts the script will check to see if the provided namespace was already created|
 |NS\_WAIT\_VARIANCE	   | The wait variance between checks on the name space.  This will be a random value between 1 and NS\_WAIT\_VARIANCE|
 |CM\_WAIT\_TIME\_SEC	| The time to wait between checks to see if the Couchmart pod was succesfully created|
