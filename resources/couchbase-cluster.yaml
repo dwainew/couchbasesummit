@@ -33,6 +33,6 @@ spec:
       enableIndexReplica: false
   servers:
     - size: 3
-      name: all_services
+      name: data_service
       services:
         - data
