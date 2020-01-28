@@ -127,7 +127,7 @@ def setup_rsa(ns):
 	print("Generating certificate for Admission Controller")
 
 	if os.path.exists("./resources/easy-rsa"):
-		execute_command("RD /S ./resources/easy-rsa")
+		execute_command("rm -rf ./resources/easy-rsa")
 	execute_command("git clone https://github.com/OpenVPN/easy-rsa ./resources/easy-rsa")
 
 	os.environ['EASYRSA_PKI']="./resources/easy-rsa/easyrsa3/pki"
